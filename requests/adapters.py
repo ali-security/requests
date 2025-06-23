@@ -8,7 +8,6 @@ and maintain connections.
 
 import os.path
 import socket  # noqa: F401
-import typing
 
 from urllib3.exceptions import ClosedPoolError, ConnectTimeoutError
 from urllib3.exceptions import HTTPError as _HTTPError
@@ -62,36 +61,10 @@ except ImportError:
         raise InvalidSchema("Missing dependencies for SOCKS support.")
 
 
-if typing.TYPE_CHECKING:
-    from .models import PreparedRequest
-
-
 DEFAULT_POOLBLOCK = False
 DEFAULT_POOLSIZE = 10
 DEFAULT_RETRIES = 0
 DEFAULT_POOL_TIMEOUT = None
-
-
-def _urllib3_request_context(
-    request: "PreparedRequest", verify: "bool | str | None"
-) -> "(typing.Dict[str, typing.Any], typing.Dict[str, typing.Any])":
-    host_params = {}
-    pool_kwargs = {}
-    parsed_request_url = urlparse(request.url)
-    scheme = parsed_request_url.scheme.lower()
-    port = parsed_request_url.port
-    cert_reqs = "CERT_REQUIRED"
-    if verify is False:
-        cert_reqs = "CERT_NONE"
-    if isinstance(verify, str):
-        pool_kwargs["ca_certs"] = verify
-    pool_kwargs["cert_reqs"] = cert_reqs
-    host_params = {
-        "scheme": scheme,
-        "host": parsed_request_url.hostname,
-        "port": port,
-    }
-    return host_params, pool_kwargs
 
 
 class BaseAdapter:
@@ -355,43 +328,6 @@ class HTTPAdapter(BaseAdapter):
 
         return response
 
-    def get_connection_with_tls_context(self, request, verify, proxies=None, cert=None):
-        """Returns a urllib3 connection for the given request and TLS settings.
-        This should not be called from user code, and is only exposed for use
-        when subclassing the :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
-
-        :param request: The :class:`PreparedRequest <PreparedRequest>` object
-            to be sent over the connection.
-        :param verify: Either a boolean, in which case it controls whether
-            we verify the server's TLS certificate, or a string, in which case it
-            must be a path to a CA bundle to use.
-        :param proxies: (optional) The proxies dictionary to apply to the request.
-        :param cert: (optional) Any user-provided SSL certificate to be trusted.
-        :rtype: urllib3.ConnectionPool
-        """
-        proxy = select_proxy(request.url, proxies)
-        try:
-            host_params, pool_kwargs = _urllib3_request_context(request, verify)
-        except ValueError as e:
-            raise InvalidURL(e, request=request)
-        if proxy:
-            proxy = prepend_scheme_if_needed(proxy, "http")
-            proxy_url = parse_url(proxy)
-            if not proxy_url.host:
-                raise InvalidProxyURL(
-                    "Please check proxy URL. It is malformed "
-                    "and could be missing the host."
-                )
-            proxy_manager = self.proxy_manager_for(proxy)
-            conn = proxy_manager.connection_from_url(url, pool_kwargs=pool_kwargs)
-        else:
-            # Only scheme should be lower case
-            parsed = urlparse(url)
-            url = parsed.geturl()
-            conn = self.poolmanager.connection_from_url(url, pool_kwargs=pool_kwargs)
-
-        return conn
-
     def get_connection(self, url, proxies=None):
         """Returns a urllib3 connection for the given URL. This should not be
         called from user code, and is only exposed for use when subclassing the
@@ -403,14 +339,6 @@ class HTTPAdapter(BaseAdapter):
         """
         proxy = select_proxy(url, proxies)
 
-        pool_kwargs = {}
-        cert_reqs = "CERT_REQUIRED"
-        if self.verify_get_connection is False:
-            cert_reqs = "CERT_NONE"
-        if isinstance(self.verify_get_connection, str):
-            pool_kwargs["ca_certs"] = self.verify_get_connection
-        pool_kwargs["cert_reqs"] = cert_reqs
-
         if proxy:
             proxy = prepend_scheme_if_needed(proxy, "http")
             proxy_url = parse_url(proxy)
@@ -420,12 +348,12 @@ class HTTPAdapter(BaseAdapter):
                     "and could be missing the host."
                 )
             proxy_manager = self.proxy_manager_for(proxy)
-            conn = proxy_manager.connection_from_url(url, pool_kwargs=pool_kwargs)
+            conn = proxy_manager.connection_from_url(url)
         else:
             # Only scheme should be lower case
             parsed = urlparse(url)
             url = parsed.geturl()
-            conn = self.poolmanager.connection_from_url(url, pool_kwargs=pool_kwargs)
+            conn = self.poolmanager.connection_from_url(url)
 
         return conn
 
@@ -523,9 +451,7 @@ class HTTPAdapter(BaseAdapter):
         """
 
         try:
-            self.verify_get_connection = verify  # pass verify to get_connection without changing function signature
             conn = self.get_connection(request.url, proxies)
-            del self.verify_get_connection
         except LocationValueError as e:
             raise InvalidURL(e, request=request)
 
