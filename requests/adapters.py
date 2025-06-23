@@ -339,6 +339,14 @@ class HTTPAdapter(BaseAdapter):
         """
         proxy = select_proxy(url, proxies)
 
+        pool_kwargs = {}
+        cert_reqs = "CERT_REQUIRED"
+        if self.verify_get_connection is False:
+            cert_reqs = "CERT_NONE"
+        if isinstance(self.verify_get_connection, str):
+            pool_kwargs["ca_certs"] = self.verify_get_connection
+        pool_kwargs["cert_reqs"] = cert_reqs
+
         if proxy:
             proxy = prepend_scheme_if_needed(proxy, "http")
             proxy_url = parse_url(proxy)
@@ -348,12 +356,12 @@ class HTTPAdapter(BaseAdapter):
                     "and could be missing the host."
                 )
             proxy_manager = self.proxy_manager_for(proxy)
-            conn = proxy_manager.connection_from_url(url)
+            conn = proxy_manager.connection_from_url(url, pool_kwargs=pool_kwargs)
         else:
             # Only scheme should be lower case
             parsed = urlparse(url)
             url = parsed.geturl()
-            conn = self.poolmanager.connection_from_url(url)
+            conn = self.poolmanager.connection_from_url(url, pool_kwargs=pool_kwargs)
 
         return conn
 
@@ -451,7 +459,9 @@ class HTTPAdapter(BaseAdapter):
         """
 
         try:
+            self.verify_get_connection = verify  # pass verify to get_connection without changing function signature
             conn = self.get_connection(request.url, proxies)
+            del self.verify_get_connection
         except LocationValueError as e:
             raise InvalidURL(e, request=request)
 
