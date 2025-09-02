@@ -467,7 +467,10 @@ class HTTPAdapter(BaseAdapter):
             raise InvalidURL(e, request=request)
         finally:
             if hasattr(self, "_verify_get_connection"):
-                del self._verify_get_connection
+                try:
+                    del self._verify_get_connection
+                except AttributeError:
+                    pass
 
         self.cert_verify(conn, request.url, verify, cert)
         url = self.request_url(request, proxies)
