@@ -366,6 +366,8 @@ class HTTPAdapter(BaseAdapter):
 
         return conn
 
+    get_connection.__supports_verify__ = True
+
     def close(self):
         """Disposes of any internal state.
 
@@ -460,13 +462,10 @@ class HTTPAdapter(BaseAdapter):
         """
 
         try:
-            try:
+            if getattr(self.get_connection, "__supports_verify__", False):
                 conn = self.get_connection(request.url, proxies, verify=verify)
-            except TypeError as e:
-                if "verify" in str(e):
-                    conn = self.get_connection(request.url, proxies)
-                else:
-                    raise e
+            else:
+                conn = self.get_connection(request.url, proxies)
         except LocationValueError as e:
             raise InvalidURL(e, request=request)
 
