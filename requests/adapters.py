@@ -463,17 +463,7 @@ class HTTPAdapter(BaseAdapter):
 
         try:
             if getattr(self.get_connection, "__supports_verify__", False):
-                try:
-                    conn = self.get_connection(request.url, proxies, verify=verify)
-                except TypeError as e:
-                    e_str = str(e)
-                    if (
-                        "verify" in e_str
-                        and "got an unexpected keyword argument" in e_str
-                    ):
-                        conn = self.get_connection(request.url, proxies)
-                    else:
-                        raise e
+                conn = self.get_connection(request.url, proxies, verify=verify)
             else:
                 conn = self.get_connection(request.url, proxies)
         except LocationValueError as e:
