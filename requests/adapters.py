@@ -340,7 +340,7 @@ class HTTPAdapter(BaseAdapter):
         proxy = select_proxy(url, proxies)
 
         pool_kwargs = {}
-        if verify is not None:
+        if verify:
             cert_reqs = "CERT_REQUIRED"
             if verify is False:
                 cert_reqs = "CERT_NONE"
