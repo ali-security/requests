@@ -328,7 +328,7 @@ class HTTPAdapter(BaseAdapter):
 
         return response
 
-    def get_connection(self, url, proxies=None):
+    def get_connection(self, url, proxies=None, verify=None):
         """Returns a urllib3 connection for the given URL. This should not be
         called from user code, and is only exposed for use when subclassing the
         :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
@@ -340,7 +340,6 @@ class HTTPAdapter(BaseAdapter):
         proxy = select_proxy(url, proxies)
 
         pool_kwargs = {}
-        verify = getattr(self, "_verify_get_connection", None)
         if verify is not None:
             cert_reqs = "CERT_REQUIRED"
             if verify is False:
@@ -461,16 +460,9 @@ class HTTPAdapter(BaseAdapter):
         """
 
         try:
-            self._verify_get_connection = verify
-            conn = self.get_connection(request.url, proxies)
+            conn = self.get_connection(request.url, proxies, verify=verify)
         except LocationValueError as e:
             raise InvalidURL(e, request=request)
-        finally:
-            if hasattr(self, "_verify_get_connection"):
-                try:
-                    del self._verify_get_connection
-                except AttributeError:
-                    pass
 
         self.cert_verify(conn, request.url, verify, cert)
         url = self.request_url(request, proxies)
