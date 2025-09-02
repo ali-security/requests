@@ -460,7 +460,13 @@ class HTTPAdapter(BaseAdapter):
         """
 
         try:
-            conn = self.get_connection(request.url, proxies, verify=verify)
+            try:
+                conn = self.get_connection(request.url, proxies, verify=verify)
+            except TypeError as e:
+                if "verify" in str(e):
+                    conn = self.get_connection(request.url, proxies)
+                else:
+                    raise e
         except LocationValueError as e:
             raise InvalidURL(e, request=request)
 
